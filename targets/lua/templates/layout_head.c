@@ -1,4 +1,4 @@
-\#include "${out_file}.hpp"
+\#include "${out_file}.h"
 #if $macro_judgement
 $macro_judgement
 #end if
@@ -12,6 +12,8 @@ $macro_judgement
 #end for
 \#include "tolua_fix.h"
 \#include "LuaBasicConversions.h"
+\#include "lua_himex_conversions.h"
+\#include "lua_helpers.h"
 #if $cpp_headers
 #for header in $cpp_headers
 \#include "${header}"

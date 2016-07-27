@@ -8,7 +8,7 @@
     #set $parent_index = 0
     #for $parent in $current_class.parents
         #if $parent_index < $parents_count - 1
-            #set $extend_info = $extend_info + $parent.class_name + ","
+            #set $extend_info = $extend_info + $parent.class_name + ", "
         #else
             #set $extend_info = $extend_info + $parent.class_name
         #end if

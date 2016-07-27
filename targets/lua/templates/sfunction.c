@@ -1,18 +1,17 @@
 ## ===== static function implementation template
-int ${signature_name}(lua_State* tolua_S)
+
+int ${signature_name}(lua_State* L)
 {
     int argc = 0;
-    bool ok  = true;
+#if len($arguments) > 0
+    bool ok = true;
+#end if
 
-\#if COCOS2D_DEBUG >= 1
     tolua_Error tolua_err;
-\#endif
 
-\#if COCOS2D_DEBUG >= 1
-    if (!tolua_isusertable(tolua_S,1,"${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}",0,&tolua_err)) goto tolua_lerror;
-\#endif
+    if (!tolua_isusertable(L, 1, "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}", 0, &tolua_err)) goto tolua_lerror;
 
-    argc = lua_gettop(tolua_S) - 1;
+    argc = lua_gettop(L) - 1;
 
 #if len($arguments) >= $min_args
     #set arg_count = len($arguments)
@@ -45,10 +44,11 @@ int ${signature_name}(lua_State* tolua_S)
                 #set $arg_array += ["arg"+str($count)]
                 #set $count = $count + 1
         #end while
-        #if $arg_idx >= 0
-        if(!ok)
+        #if $arg_idx > 0
+
+        if (!ok)
         {
-            tolua_error(tolua_S,"invalid arguments in function '${signature_name}'", nullptr);
+            tolua_error(L, "invalid arguments in function '${signature_name}'", nullptr);
             return 0;
         }
         #end if
@@ -70,18 +70,17 @@ int ${signature_name}(lua_State* tolua_S)
         return 1;
         #else
         ${namespaced_class_name}::${func_name}($arg_list);
-        lua_settop(tolua_S, 1);
+        lua_settop(L, 1);
         return 1;
         #end if
     }
         #set $arg_idx = $arg_idx + 1
     #end while
 #end if
-    luaL_error(tolua_S, "%s has wrong number of arguments: %d, was expecting %d\n ", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${func_name}",argc, ${min_args});
+    luaL_error(L, "%s has wrong number of arguments: %d, was expecting %d\n ", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${func_name}", argc, ${min_args});
     return 0;
-\#if COCOS2D_DEBUG >= 1
-    tolua_lerror:
-    tolua_error(tolua_S,"#ferror in function '${signature_name}'.",&tolua_err);
-\#endif
+
+tolua_lerror:
+    tolua_error(L, "#ferror in function '${signature_name}'.", &tolua_err);
     return 0;
 }

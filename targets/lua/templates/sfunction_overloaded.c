@@ -1,17 +1,14 @@
 ## ===== static function implementation template - for overloaded functions
-int ${signature_name}(lua_State* tolua_S)
+
+int ${signature_name}(lua_State* L)
 {
     int argc = 0;
-    bool ok  = true;
-\#if COCOS2D_DEBUG >= 1
+    bool ok = true;
     tolua_Error tolua_err;
-\#endif
 
-\#if COCOS2D_DEBUG >= 1
-    if (!tolua_isusertable(tolua_S,1,"${generator.scriptname_from_native($namespaced_class_name,$namespace_name)}",0,&tolua_err)) goto tolua_lerror;
-\#endif
+    if (!tolua_isusertable(L, 1, "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}", 0, &tolua_err)) goto tolua_lerror;
 
-    argc = lua_gettop(tolua_S)-1;
+    argc = lua_gettop(L) - 1;
 
     #for func in $implementations   
     #if len($func.arguments) >= $func.min_args
@@ -63,21 +60,20 @@ int ${signature_name}(lua_State* tolua_S)
             return 1;
             #else
             ${namespaced_class_name}::${func.func_name}($arg_list);
-            lua_settop(tolua_S, 1);
+            lua_settop(L, 1);
             return 1;
             #end if
         }
     } while (0);
     #set $arg_idx = $arg_idx + 1
-    ok  = true;
+    ok = true;
     #end while
     #end if
     #end for
-    luaL_error(tolua_S, "%s has wrong number of arguments: %d, was expecting %d", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${func.func_name}",argc, ${func.min_args});
+    luaL_error(L, "%s has wrong number of arguments: %d, was expecting %d", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${func.func_name}", argc, ${func.min_args});
     return 0;
-\#if COCOS2D_DEBUG >= 1
-    tolua_lerror:
-    tolua_error(tolua_S,"#ferror in function '${signature_name}'.",&tolua_err);
-\#endif
+
+tolua_lerror:
+    tolua_error(L, "#ferror in function '${signature_name}'.", &tolua_err);
     return 0;
 }

@@ -267,7 +267,10 @@ class NativeType(object):
         nt.name = displayname.split("::")[-1]
         nt.namespaced_name = displayname
         nt.whole_name = nt.namespaced_name
-        nt.is_object = True
+        if nt.name.endswith("Enum"):
+            nt.is_enum = True
+        else:
+            nt.is_object = True
         return nt
 
     @property
@@ -339,7 +342,7 @@ class NativeType(object):
             tpl = Template(tpl, searchList=[convert_opts])
             return str(tpl).rstrip()
 
-        return "#pragma warning NO CONVERSION FROM NATIVE FOR " + self.name
+        return "//NO CONVERSION FROM NATIVE FOR " + self.name
 
     def to_native(self, convert_opts):
         assert('generator' in convert_opts)
@@ -368,7 +371,7 @@ class NativeType(object):
             tpl = NativeType.dict_get_value_re(to_native_dict, keys)
             tpl = Template(tpl, searchList=[convert_opts])
             return str(tpl).rstrip()
-        return "#pragma warning NO CONVERSION TO NATIVE FOR " + self.name + "\n" + convert_opts['level'] * "\t" +  "ok = false"
+        return "//NO CONVERSION TO NATIVE FOR " + self.name + "\n" + convert_opts['level'] * "\t" +  "ok = false"
 
     def to_string(self, generator):
         conversions = generator.config['conversions']
@@ -473,7 +476,7 @@ class NativeField(object):
             self.signature_name = str(tpl)
         tpl = Template(file=os.path.join(gen.target, "templates", "public_field.c"),
                        searchList=[current_class, self])
-        gen.impl_file.write(str(tpl))
+        current_class.class_impl_file.write(str(tpl))
 
 # return True if found default argument.
 def iterate_param_node(param_node, depth=1):
@@ -493,7 +496,7 @@ class NativeFunction(object):
         self.func_name = cursor.spelling
         self.signature_name = self.func_name
         self.arguments = []
-        self.argumtntTips = []
+        self.argumentTips = []
         self.static = cursor.kind == cindex.CursorKind.CXX_METHOD and cursor.is_static_method()
         self.implementations = []
         self.is_overloaded = False
@@ -507,7 +510,7 @@ class NativeFunction(object):
         # if self.func_name == "spriteWithFile":
         #   pdb.set_trace()
         for arg in cursor.get_arguments():
-            self.argumtntTips.append(arg.spelling)
+            self.argumentTips.append(arg.spelling)
 
         for arg in cursor.type.argument_types():
             nt = NativeType.from_type(arg)
@@ -567,7 +570,7 @@ class NativeFunction(object):
             tpl = Template(file=os.path.join(gen.target, "templates", "function.h"),
                         searchList=[current_class, self])
             if not is_override:
-                gen.head_file.write(str(tpl))
+                current_class.class_head_file.write(str(tpl))
         if self.static:
             if config['definitions'].has_key('sfunction'):
                 tpl = Template(config['definitions']['sfunction'],
@@ -597,11 +600,11 @@ class NativeFunction(object):
                 else:
                     tpl = Template(file=os.path.join(gen.target, "templates", "ctor.c"),
                                                 searchList=[current_class, self])
-            else :
+            else:
                 tpl = Template(file=os.path.join(gen.target, "templates", "ifunction.c"),
                                 searchList=[current_class, self])
         if not is_override:
-            gen.impl_file.write(str(tpl))
+            current_class.class_impl_file.write(str(tpl))
         if not is_ctor:
             apidoc_function_script = Template(file=os.path.join(gen.target,
                                                             "templates",
@@ -669,7 +672,7 @@ class NativeOverloadedFunction(object):
             tpl = Template(file=os.path.join(gen.target, "templates", "function.h"),
                         searchList=[current_class, self])
             if not is_override:
-                gen.head_file.write(str(tpl))
+                current_class.class_head_file.write(str(tpl))
         if static:
             if config['definitions'].has_key('sfunction'):
                 tpl = Template(config['definitions']['sfunction'],
@@ -695,7 +698,7 @@ class NativeOverloadedFunction(object):
             tpl = Template(file=os.path.join(gen.target, "templates", "ifunction_overloaded.c"),
                             searchList=[current_class, self])
         if not is_override:
-            gen.impl_file.write(str(tpl))
+            current_class.class_impl_file.write(str(tpl))
 
         if current_class != None and not is_ctor:
             if gen.script_type == "lua":
@@ -800,10 +803,6 @@ class NativeClass(object):
             self.is_ref_class = self._is_ref_class()
 
         config = self.generator.config
-        prelude_h = Template(file=os.path.join(self.generator.target, "templates", "prelude.h"),
-                            searchList=[{"current_class": self}])
-        prelude_c = Template(file=os.path.join(self.generator.target, "templates", "prelude.c"),
-                            searchList=[{"current_class": self}])
         apidoc_classhead_script = Template(file=os.path.join(self.generator.target,
                                                          "templates",
                                                          "apidoc_classhead.script"),
@@ -817,9 +816,34 @@ class NativeClass(object):
                                        searchList=[{"current_class": self}])
             self.doc_func_file.write(str(apidoc_fun_head_script))
 
-        self.generator.head_file.write(str(prelude_h))
-        self.generator.impl_file.write(str(prelude_c))
         self.generator.doc_file.write(str(apidoc_classhead_script))
+
+        apidoc_classfoot_script = Template(file=os.path.join(self.generator.target,
+                                                         "templates",
+                                                         "apidoc_classfoot.script"),
+                                       searchList=[{"current_class": self}])
+        self.generator.doc_file.write(str(apidoc_classfoot_script))
+
+        classheadfilepath = os.path.join(self.generator.outdir, "%s_%s.h" % (self.generator.prefix, self.class_name))
+        classimplfilepath = os.path.join(self.generator.outdir, "%s_%s.cpp" % (self.generator.prefix, self.class_name))
+
+        self.class_head_file = open(classheadfilepath, "w+")
+        self.class_impl_file = open(classimplfilepath, "w+")
+
+        layout_h = Template(file=os.path.join(self.generator.target, "templates", "layout_head.h"),
+                            searchList=[{"current_class": self}, self.generator])
+        layout_c = Template(file=os.path.join(self.generator.target, "templates", "layout_head.c"),
+                            searchList=[{"current_class": self}, self.generator])
+        self.class_head_file.write(str(layout_h))
+        self.class_impl_file.write(str(layout_c))
+
+        prelude_h = Template(file=os.path.join(self.generator.target, "templates", "prelude.h"),
+                            searchList=[{"current_class": self}])
+        prelude_c = Template(file=os.path.join(self.generator.target, "templates", "prelude.c"),
+                            searchList=[{"current_class": self}])
+        self.class_head_file.write(str(prelude_h))
+        self.class_impl_file.write(str(prelude_c))
+
         for m in self.methods_clean():
             m['impl'].generate_code(self)
         for m in self.static_methods_clean():
@@ -830,15 +854,15 @@ class NativeClass(object):
         for m in self.public_fields:
             if self.generator.should_bind_field(self.class_name, m.name):
                 m.generate_code(self)
+
         # generate register section
         register = Template(file=os.path.join(self.generator.target, "templates", "register.c"),
                             searchList=[{"current_class": self}])
-        apidoc_classfoot_script = Template(file=os.path.join(self.generator.target,
-                                                         "templates",
-                                                         "apidoc_classfoot.script"),
-                                       searchList=[{"current_class": self}])
-        self.generator.impl_file.write(str(register))
-        self.generator.doc_file.write(str(apidoc_classfoot_script))
+        self.class_impl_file.write(str(register))
+
+        self.class_head_file.close()
+        self.class_impl_file.close()
+
         if self.generator.script_type == "lua":
             apidoc_fun_foot_script  = Template(file=os.path.join(self.generator.target,
                                                          "templates",
@@ -846,6 +870,7 @@ class NativeClass(object):
                                        searchList=[{"current_class": self}])
             self.doc_func_file.write(str(apidoc_fun_foot_script))
             self.doc_func_file.close()
+
     def _deep_iterate(self, cursor=None, depth=0):
         for node in cursor.get_children():
             # print("%s%s - %s" % ("> " * depth, node.displayname, node.kind))
@@ -1177,7 +1202,7 @@ class Generator(object):
         data = yaml.load(stream)
         self.config = data
         implfilepath = os.path.join(self.outdir, self.out_file + ".cpp")
-        headfilepath = os.path.join(self.outdir, self.out_file + ".hpp")
+        headfilepath = os.path.join(self.outdir, self.out_file + ".h")
 
         docfiledir   = self.outdir + "/api"
         if not os.path.exists(docfiledir):
@@ -1280,7 +1305,8 @@ class Generator(object):
             if namespace_class_name.find("std::") == 0:
                 return namespace_class_name
             else:
-                raise Exception("The namespace (%s) conversion wasn't set in 'ns_map' section of the conversions.yaml" % namespace_class_name)
+                # raise Exception("The namespace (%s) conversion wasn't set in 'ns_map' section of the conversions.yaml" % namespace_class_name)
+                return namespace_class_name.replace("::", ".")
         else:
             return namespace_class_name.replace("*","").replace("const ", "")
 
@@ -1301,7 +1327,7 @@ class Generator(object):
                 return namespace_class_name.replace("*","").replace("const ", "").replace(k,v)
         raise Exception("The namespace (%s) conversion wasn't set in 'ns_map' section of the conversions.yaml" % namespace_class_name)
 
-    def js_typename_from_natve(self, namespace_class_name):
+    def js_typename_from_native(self, namespace_class_name):
         script_ns_dict = self.config['conversions']['ns_map']
         if namespace_class_name.find("std::") == 0:
             if namespace_class_name.find("std::string") == 0:
@@ -1343,7 +1369,7 @@ class Generator(object):
                     return namespace_class_name.replace("*","").replace("const ", "").replace(k,v)
         return namespace_class_name.replace("*","").replace("const ", "")
 
-    def lua_typename_from_natve(self, namespace_class_name, is_ret = False):
+    def lua_typename_from_native(self, namespace_class_name, is_ret = False):
         script_ns_dict = self.config['conversions']['ns_map']
         if namespace_class_name.find("std::") == 0:
             if namespace_class_name.find("std::string") == 0:
@@ -1353,7 +1379,9 @@ class Generator(object):
             if namespace_class_name.find("std::map") == 0 or namespace_class_name.find("std::unordered_map") == 0:
                 return "map_table"
             if namespace_class_name.find("std::function") == 0:
-                return "function"
+                r = re.compile('function<(.+) .*\((.*)\)>').search(namespace_class_name)
+                (ret_type, params) = r.groups()
+                return "function " + ret_type + "(" + params + ")"
 
         for (k, v) in script_ns_dict.items():
             if namespace_class_name.find(k) >= 0:
@@ -1382,13 +1410,12 @@ class Generator(object):
                 if namespace_class_name.find("cocos2d::Color4F") == 0:
                     return "color4f_table"
                 if is_ret == 1:
-                    return namespace_class_name.replace("*","").replace("const ", "").replace(k,"")
+                    return namespace_class_name.replace("*", "").replace("const ", "").replace(k, "").replace("::", ".")
                 else:
-                    return namespace_class_name.replace("*","").replace("const ", "").replace(k,v)
-        return namespace_class_name.replace("*","").replace("const ","")
+                    return namespace_class_name.replace("*","").replace("const ", "").replace(k, v).replace("::", ".")
+        return namespace_class_name.replace("*", "").replace("const ", "").replace("::", ".")
 
-
-    def api_param_name_from_native(self,native_name):
+    def api_param_name_from_native(self, native_name):
         lower_name = native_name.lower()
         if lower_name == "std::string":
             return "str"
@@ -1465,7 +1492,8 @@ def main():
 
     userconfig = ConfigParser.SafeConfigParser()
     userconfig.read('userconf.ini')
-    print 'Using userconfig \n ', userconfig.items('DEFAULT')
+    defaultConfig = dict(userconfig.items('DEFAULT'))
+    # print 'Using userconfig \n ', defaultConfig
 
     clang_lib_path = os.path.join(userconfig.get('DEFAULT', 'cxxgeneratordir'), 'libclang')
     cindex.Config.set_library_path(clang_lib_path);
@@ -1508,24 +1536,28 @@ def main():
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
+    quotePattern = re.compile(r'''((?:[^\ "']|"[^"]*"|'[^']*')+)''')
     for t in targets:
         # Fix for hidden '.svn', '.cvs' and '.git' etc. folders - these must be ignored or otherwise they will be interpreted as a target.
         if t == ".svn" or t == ".cvs" or t == ".git" or t == ".gitignore":
             continue
 
-        print "\n.... Generating bindings for target", t
+        print "\n... Generating bindings for target", t
         for s in sections:
-            print "\n.... .... Processing section", s, "\n"
+            print "\n... ... Processing section", s, "\n"
+            clangArgs = (config.get(s, 'extra_arguments', 0, defaultConfig) or "")
+            clangArgs = quotePattern.split(clangArgs)[1::2]
+            clangArgs = [re.sub("\"", "", item) for item in clangArgs]
             gen_opts = {
                 'prefix': config.get(s, 'prefix'),
-                'headers':    (config.get(s, 'headers'        , 0, dict(userconfig.items('DEFAULT')))),
+                'headers': (config.get(s, 'headers', 0, defaultConfig)),
                 'replace_headers': config.get(s, 'replace_headers') if config.has_option(s, 'replace_headers') else None,
                 'classes': config.get(s, 'classes').split(' '),
                 'classes_need_extend': config.get(s, 'classes_need_extend').split(' ') if config.has_option(s, 'classes_need_extend') else [],
-                'clang_args': (config.get(s, 'extra_arguments', 0, dict(userconfig.items('DEFAULT'))) or "").split(" "),
+                'clang_args': clangArgs,
                 'target': os.path.join(workingdir, "targets", t),
                 'outdir': outdir,
-                'search_path': os.path.abspath(os.path.join(userconfig.get('DEFAULT', 'cocosdir'), 'cocos')),
+                'search_path': os.path.join(workingdir),
                 'remove_prefix': config.get(s, 'remove_prefix'),
                 'target_ns': config.get(s, 'target_namespace'),
                 'cpp_ns': config.get(s, 'cpp_namespace').split(' ') if config.has_option(s, 'cpp_namespace') else None,
@@ -1540,10 +1572,10 @@ def main():
                 'script_control_cpp': config.get(s, 'script_control_cpp') if config.has_option(s, 'script_control_cpp') else 'no',
                 'script_type': t,
                 'macro_judgement': config.get(s, 'macro_judgement') if config.has_option(s, 'macro_judgement') else None,
-                'hpp_headers': config.get(s, 'hpp_headers', 0, dict(userconfig.items('DEFAULT'))).split(' ') if config.has_option(s, 'hpp_headers') else None,
-                'cpp_headers': config.get(s, 'cpp_headers', 0, dict(userconfig.items('DEFAULT'))).split(' ') if config.has_option(s, 'cpp_headers') else None,
-                'win32_clang_flags': (config.get(s, 'win32_clang_flags', 0, dict(userconfig.items('DEFAULT'))) or "").split(" ") if config.has_option(s, 'win32_clang_flags') else None
-                }
+                'hpp_headers': config.get(s, 'hpp_headers', 0, defaultConfig).split(' ') if config.has_option(s, 'hpp_headers') else None,
+                'cpp_headers': config.get(s, 'cpp_headers', 0, defaultConfig).split(' ') if config.has_option(s, 'cpp_headers') else None,
+                'win32_clang_flags': (config.get(s, 'win32_clang_flags', 0, defaultConfig) or "").split(" ") if config.has_option(s, 'win32_clang_flags') else None
+            }
             generator = Generator(gen_opts)
             generator.generate_code()
 

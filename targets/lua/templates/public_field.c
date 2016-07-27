@@ -1,21 +1,18 @@
 ## ===== member implementation template
-int ${signature_name}_get${name}(lua_State* tolua_S)
+
+int ${signature_name}_get${name}(lua_State* L)
 {
     ${namespaced_class_name}* cobj = nullptr;
-\#if COCOS2D_DEBUG >= 1
     tolua_Error tolua_err;
-    if (!tolua_isusertype(tolua_S,1,"${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}",0,&tolua_err)) goto tolua_lerror;
-\#endif
+    if (!tolua_isusertype(L, 1, "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}", 0, &tolua_err)) goto tolua_lerror;
     
-    cobj = (${namespaced_class_name}*)tolua_tousertype(tolua_S,1,0);
+    cobj = (${namespaced_class_name}*)tolua_tousertype(L, 1, 0);
 
-\#if COCOS2D_DEBUG >= 1
-    if (!cobj) 
+    if (!cobj)
     {
-        tolua_error(tolua_S,"invalid 'cobj' in function '${signature_name}_get${name}'", nullptr);
+        tolua_error(L, "invalid 'cobj' in function '${signature_name}_get${name}'", nullptr);
         return 0;
     }
-\#endif
 
     #if $ntype.is_object and not $ntype.object_can_convert($generator, False)
     ${ntype.from_native({"generator": $generator,
@@ -36,34 +33,29 @@ int ${signature_name}_get${name}(lua_State* tolua_S)
     #end if
 
     return 1;
-\#if COCOS2D_DEBUG >= 1
+
 tolua_lerror:
-    tolua_error(tolua_S,"#ferror in function '${signature_name}_get${name}'.",&tolua_err);
+    tolua_error(L, "#ferror in function '${signature_name}_get${name}'.", &tolua_err);
     return 0;
-\#endif
 }
 
-int ${signature_name}_set${name}(lua_State* tolua_S)
+int ${signature_name}_set${name}(lua_State* L)
 {
     int argc = 0;
     ${namespaced_class_name}* cobj = nullptr;
-    bool ok  = true;
+    bool ok = true;
 
-\#if COCOS2D_DEBUG >= 1
     tolua_Error tolua_err;
-    if (!tolua_isusertype(tolua_S,1,"${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}",0,&tolua_err)) goto tolua_lerror;
-\#endif
+    if (!tolua_isusertype(L, 1, "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}", 0, &tolua_err)) goto tolua_lerror;
 
-    cobj = (${namespaced_class_name}*)tolua_tousertype(tolua_S,1,0);
+    cobj = (${namespaced_class_name}*)tolua_tousertype(L, 1, 0);
 
-\#if COCOS2D_DEBUG >= 1
-    if (!cobj) 
+    if (!cobj)
     {
-        tolua_error(tolua_S,"invalid 'cobj' in function '${signature_name}_set${name}'", nullptr);
+        tolua_error(L, "invalid 'cobj' in function '${signature_name}_set${name}'", nullptr);
         return 0;
     }
-\#endif
-    argc = lua_gettop(tolua_S) - 1;
+    argc = lua_gettop(L) - 1;
 
     if (1 == argc)
     {
@@ -89,12 +81,10 @@ int ${signature_name}_set${name}(lua_State* tolua_S)
         return 0;
     }
 
-    CCLOG("%s has wrong number of arguments: %d, was expecting %d \n", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${name}",argc, 1);
+    CCLOG("%s has wrong number of arguments: %d, was expecting %d \n", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${name}", argc, 1);
     return 0;
 
-\#if COCOS2D_DEBUG >= 1
 tolua_lerror:
-    tolua_error(tolua_S,"#ferror in function '${signature_name}_get${name}'.",&tolua_err);
+    tolua_error(L, "#ferror in function '${signature_name}_get${name}'.", &tolua_err);
     return 0;
-\#endif
 }
