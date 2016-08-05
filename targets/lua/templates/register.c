@@ -76,8 +76,8 @@ int register_${generator.prefix}_${current_class.class_name}(lua_State* L)
 
     tolua_beginmodule(L, "${current_class.class_name}");
     #if has_constructor
-        tolua_function(L, "new", ${generator.prefix}_${current_class.class_name}_constructor);
-        tolua_function(L, ".collector", ${generator.prefix}_${current_class.class_name}_destructor);
+        tolua_function(L, "new", lua_${generator.prefix}_${current_class.class_name}_constructor);
+        tolua_function(L, ".collector", lua_${generator.prefix}_${current_class.class_name}_destructor);
     #end if
     #for m in methods
         #set fn = m['impl']

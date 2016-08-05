@@ -267,10 +267,7 @@ class NativeType(object):
         nt.name = displayname.split("::")[-1]
         nt.namespaced_name = displayname
         nt.whole_name = nt.namespaced_name
-        if nt.name.endswith("Enum"):
-            nt.is_enum = True
-        else:
-            nt.is_object = True
+        nt.is_object = True
         return nt
 
     @property
@@ -330,6 +327,18 @@ class NativeType(object):
         keys.append(self.name)
 
         from_native_dict = generator.config['conversions']['from_native']
+        if self.is_object and convert_opts.get("scriptname") is None:
+            # Retrieved from stringified lambda parameter,
+            #  perform any required custom mapping
+            name = self.name.replace("&", "").replace("*", "").rstrip()
+            if generator.rename_classes.has_key(name):
+                rename = generator.rename_classes[name]
+                if rename == "int":
+                    # Found an enum type
+                    self.is_object = False
+                    self.is_enum = True
+            else:
+                convert_opts["scriptname"] = self.name
 
         if self.is_object:
             if not NativeType.dict_has_key_re(from_native_dict, keys):
@@ -339,8 +348,11 @@ class NativeType(object):
 
         if NativeType.dict_has_key_re(from_native_dict, keys):
             tpl = NativeType.dict_get_value_re(from_native_dict, keys)
-            tpl = Template(tpl, searchList=[convert_opts])
-            return str(tpl).rstrip()
+            try:
+                tpl = Template(tpl, searchList=[convert_opts])
+                return str(tpl).rstrip()
+            except Exception:
+                print "Failed to convert %s" % self.name
 
         return "//NO CONVERSION FROM NATIVE FOR " + self.name
 
@@ -1099,7 +1111,6 @@ class Generator(object):
         return None
 
     def get_class_or_rename_class(self, class_name):
-
         if self.rename_classes.has_key(class_name):
             # print >> sys.stderr, "will rename %s to %s" % (method_name, self.rename_functions[class_name][method_name])
             return self.rename_classes[class_name]
