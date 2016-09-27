@@ -9,7 +9,7 @@ int ${current_class.methods.constructor.signature_name.replace("constructor", "d
     ${$current_class.namespaced_class_name}* cobj = nullptr;
 
     tolua_Error tolua_err;
-    if (!tolua_isusertype(L, 1, "${class_name}", 0, &tolua_err)) goto tolua_lerror;
+    if (!tolua_isusertype(L, 1, "${current_class.generator.scriptname_from_native($current_class.namespaced_class_name, $current_class.namespace_name)}", 0, &tolua_err)) goto tolua_lerror;
 
     cobj = (${$current_class.namespaced_class_name}*)tolua_tousertype(L, 1, 0);
 
@@ -93,3 +93,7 @@ int register_${generator.prefix}_${current_class.class_name}(lua_State* L)
     g_typeCast["${current_class.class_name}"] = "${generator.scriptname_from_native($current_class.namespaced_class_name, $current_class.namespace_name)}";
     return 1;
 }
+
+#if $generator.macro_judgement
+\#endif
+#end if

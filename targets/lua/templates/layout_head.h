@@ -1,7 +1,7 @@
 \#pragma once
 #if $macro_judgement
 $macro_judgement
-#end if 
+#end if
 #if $hpp_headers
 #for header in $hpp_headers
 \#include "${header}"

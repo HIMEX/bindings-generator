@@ -148,7 +148,7 @@ conversions:
     "NavMeshAgentParam": "navmeshagentparam_to_luaval(L, ${in_value})"
     "OffMeshLinkData": "offmeshlinkdata_to_luaval(L, ${in_value})"
 
-    "CurlResponse &": "himex_curl_response_to_luaval(L, ${in_value})"
+    "CurlResponse": "himex_curl_response_to_luaval(L, ${in_value})"
     "DataBuffer": "lua_pushlstring(L, ${in_value}.value.data(), ${in_value}.value.size())"
     "DatabaseQueryResponse": "himex_database_query_response_to_luaval(L, ${in_value})"
     "DeviceInfo": "himex_device_info_to_luaval(L, ${in_value})"

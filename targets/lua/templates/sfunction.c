@@ -20,28 +20,34 @@ int ${signature_name}(lua_State* L)
     if (argc == ${arg_idx})
     {
         #set arg_list = ""
-        #set arg_array = []
         #set $count = 0
+        #set arg_names = []
         #while $count < $arg_idx
             #set $arg = $arguments[$count]
-        ${arg.to_string($generator)} arg${count};
+            #set argname = $argumentTips[$count]
+            #if len(argname) == 0
+                #set argname = "arg" + str(count)
+            #end if
+            #set $arg_names += [$argname]
+        ${arg.to_string($generator)} ${argname};
             #set $count = $count + 1
         #end while
         #set $count = 0
+        #set arg_array = []
         #while $count < $arg_idx
             #set $arg = $arguments[$count]
         ${arg.to_native({"generator": $generator,
                          "in_value": "argv[" + str(count) + "]",
-                         "out_value": "arg" + str(count),
-                         "arg_idx": $count+2,
+                         "out_value": $arg_names[$count],
+                         "arg_idx": $count + 2,
                          "class_name": $class_name,
                          "lua_namespaced_class_name": $generator.scriptname_from_native($namespaced_class_name, $namespace_name),
                          "func_name": $func_name,
                          "level": 2,
-                         "arg":$arg,
+                         "arg": $arg,
                          "ntype": $arg.namespaced_name.replace("*", ""),
                          "scriptname": $generator.scriptname_from_native($arg.namespaced_name, $arg.namespace_name)})};
-                #set $arg_array += ["arg"+str($count)]
+                #set $arg_array += [$arg_names[$count]]
                 #set $count = $count + 1
         #end while
         #if $arg_idx > 0

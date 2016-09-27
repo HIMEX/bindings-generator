@@ -4,12 +4,16 @@ int ${signature_name}(lua_State* L)
 {
 #if not $is_constructor
     ${namespaced_class_name}* cobj = (${namespaced_class_name}*)tolua_tousertype(L, 1, 0);
-#end if
     int argc = lua_gettop(L) - 1;
+#else
+    int argc = lua_gettop(L);
+#end if
 #if len($arguments) > 0
     bool ok = true;
 
 #end if
+    tolua_Error tolua_err;
+
 #if len($arguments) >= $min_args
     #set arg_count = len($arguments)
     #set arg_idx = $min_args
@@ -17,9 +21,15 @@ int ${signature_name}(lua_State* L)
     if (argc == $arg_idx)
     {
         #set $count = 0
+        #set arg_names = []
         #while $count < $arg_idx
             #set $arg = $arguments[$count]
-        ${arg.to_string($generator)} $argumentTips[$count];
+            #set argname = $argumentTips[$count]
+            #if len(argname) == 0
+                #set argname = "arg" + str(count)
+            #end if
+            #set $arg_names += [$argname]
+        ${arg.to_string($generator)} $argname;
             #set $count = $count + 1
         #end while
         #set $count = 0
@@ -27,22 +37,22 @@ int ${signature_name}(lua_State* L)
         #set arg_array = []
         #while $count < $arg_idx
             #set $arg = $arguments[$count]
-            #set $gen_idx = $count+1
+            #set $gen_idx = $count + 1
             #if not $is_constructor
                 #set $gen_idx = $gen_idx + 1
             #end if
         ${arg.to_native({"generator": $generator,
                          "in_value": "argv[" + str(count) + "]",
-                         "out_value": $argumentTips[$count],
+                         "out_value": $arg_names[$count],
                          "arg_idx": $gen_idx,
                          "class_name": $class_name,
                          "lua_namespaced_class_name": $generator.scriptname_from_native($namespaced_class_name, $namespace_name),
                          "func_name": $func_name,
                          "level": 2,
-                         "arg":$arg,
+                         "arg": $arg,
                          "ntype": $arg.namespaced_name.replace("*", ""),
                          "scriptname": $generator.scriptname_from_native($arg.namespaced_name, $arg.namespace_name)})};
-            #set $arg_to_push = $argumentTips[$count]
+            #set $arg_to_push = $arg_names[$count]
             #set $arg_array += [$arg_to_push]
             #set $count = $count + 1
         #end while
@@ -87,5 +97,10 @@ int ${signature_name}(lua_State* L)
         #set $arg_idx = $arg_idx + 1
     #end while
 #end if
+    luaL_error(L, "%s has wrong number of arguments: %d, was expecting %d\n ", "${generator.scriptname_from_native($namespaced_class_name, $namespace_name)}:${func_name}", argc, ${arg_count});
+    return 0;
+
+tolua_lerror:
+    tolua_error(L, "#ferror in function '${signature_name}'.", &tolua_err);
     return 0;
 }

@@ -24,10 +24,14 @@ int ${signature_name}(lua_State* L)
             #set count = 0
             #while $count < $arg_idx
             #set $arg = $func.arguments[$count]
-            ${arg.to_string($generator)} arg${count};
+            #set argname = $func.argumentTips[$count]
+            #if len(argname) == 0
+                #set argname = "arg" + str(count)
+            #end if
+            ${arg.to_string($generator)} ${argname};
             ${arg.to_native({"generator": $generator,
                              "in_value": "argv[" + str(count) + "]",
-                             "out_value": "arg" + str(count),
+                             "out_value": $argname,
                              "arg_idx": $count+2,
                              "class_name": $class_name,
                              "lua_namespaced_class_name": $generator.scriptname_from_native($namespaced_class_name, $namespace_name),
@@ -36,7 +40,7 @@ int ${signature_name}(lua_State* L)
                              "arg":$arg,
                              "ntype": $arg.namespaced_name.replace("*", ""),
                              "scriptname": $generator.scriptname_from_native($arg.namespaced_name, $arg.namespace_name)})};
-            #set $arg_array += ["arg"+str(count)]
+            #set $arg_array += [$argname]
             #set $count = $count + 1
             #if $arg_idx >= 0
             if (!ok) { break; }

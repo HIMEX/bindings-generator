@@ -21,7 +21,7 @@ if (${out_value}Func != 0)
 
         auto S = LuaEngine::getInstance()->getLuaStack();
         #if $ret_type.name != "void"
-        return S->executeFunction(${arg_count});
+        return (int)S->executeFunction(${arg_count});
         #else
         S->executeFunction(${arg_count});
         #end if

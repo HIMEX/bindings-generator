@@ -146,6 +146,39 @@ def get_namespace_name(declaration_cursor):
 
     return declaration_cursor.displayname
 
+def simplify_template_parameter_type(param):
+    # Extract this to conversion map in configuration file
+    param = param.replace("std::basic_string<char>", "std::string")
+    return param
+
+def derive_lambda_parameters_from_string(raw):
+    params = []
+    from_index = 0
+    to_index = 0
+    brace_count = 0
+    input_length = len(raw)
+    found_template = False
+    while to_index <= input_length:
+        if (to_index == input_length or raw[to_index] == ',') and brace_count == 0:
+            entry = raw[from_index:to_index]
+            from_index = to_index + 1
+
+            if found_template == True:
+                entry = simplify_template_parameter_type(entry)
+                found_template = False
+
+            params.append(entry.strip())
+        elif raw[to_index] == '<':
+            brace_count += 1
+            found_template = True
+        elif raw[to_index] == '>':
+            brace_count -= 1
+        to_index += 1
+
+    if brace_count != 0:
+        raise RuntimeError("Detected imbalanced braces in \"%s\"" % raw)
+
+    return params
 
 class NativeType(object):
     def __init__(self):
@@ -244,7 +277,9 @@ class NativeType(object):
                     nt.namespaced_name = get_namespaced_name(cdecl)
                     r = re.compile('function<(.+) .*\((.*)\)>').search(cdecl.displayname)
                     (ret_type, params) = r.groups()
-                    params = filter(None, params.split(", "))
+                    if len(params) > 0:
+                        params = derive_lambda_parameters_from_string(params)
+                    # params = filter(None, params.split(", "))
 
                     nt.is_function = True
                     nt.ret_type = NativeType.from_string(ret_type)
@@ -261,13 +296,43 @@ class NativeType(object):
 
     @staticmethod
     def from_string(displayname):
-        displayname = displayname.replace(" *", "*")
-
         nt = NativeType()
+        nt.whole_name = displayname
+
+        is_value_reference = False
+        if displayname.endswith("&"):
+            is_value_reference = True
+            displayname = displayname.replace("&", "").strip()
+
+        is_pointer = False
+        if displayname.endswith("*"):
+            is_pointer = True
+            displayname = displayname.replace("*", "").strip()
+
+        is_const = False
+        if displayname.startswith("const ") or displayname.endswith(" const"):
+            is_const = True
+            displayname = displayname.replace("const ", "").replace(" const", "").strip()
+
+        nt.is_const = is_const
+        nt.is_pointer = is_pointer
+
         nt.name = displayname.split("::")[-1]
         nt.namespaced_name = displayname
-        nt.whole_name = nt.namespaced_name
         nt.is_object = True
+
+        if nt.namespaced_name == "std::string":
+            nt.name = nt.namespaced_name
+
+        if nt.namespaced_name.startswith("std::function"):
+            nt.name = "std::function"
+
+        if nt.name == "char" and nt.is_pointer:
+            nt.name = "char*"
+
+        if len(nt.namespaced_name) == 0 or nt.namespaced_name.find("::") == -1:
+            nt.namespaced_name = nt.name
+
         return nt
 
     @property
@@ -327,22 +392,26 @@ class NativeType(object):
         keys.append(self.name)
 
         from_native_dict = generator.config['conversions']['from_native']
-        if self.is_object and convert_opts.get("scriptname") is None:
-            # Retrieved from stringified lambda parameter,
-            #  perform any required custom mapping
-            name = self.name.replace("&", "").replace("*", "").rstrip()
-            if generator.rename_classes.has_key(name):
-                rename = generator.rename_classes[name]
-                if rename == "int":
-                    # Found an enum type
-                    self.is_object = False
-                    self.is_enum = True
-            else:
-                convert_opts["scriptname"] = self.name
 
         if self.is_object:
+            if convert_opts.get("scriptname") is None:
+                # Retrieved from stringified lambda parameter,
+                #  perform any required custom mapping
+                name = self.name.replace("&", "").replace("*", "").rstrip()
+
+                if generator.rename_classes.has_key(name):
+                    rename = generator.rename_classes[name]
+                    if rename == "int":
+                        # Found an enum type
+                        self.is_object = False
+                        self.is_enum = True
+                        keys.append("int")
+                else:
+                    convert_opts["scriptname"] = self.name
+
             if not NativeType.dict_has_key_re(from_native_dict, keys):
                 keys.append("object")
+
         elif self.is_enum:
             keys.append("int")
 
@@ -351,10 +420,10 @@ class NativeType(object):
             try:
                 tpl = Template(tpl, searchList=[convert_opts])
                 return str(tpl).rstrip()
-            except Exception:
-                print "Failed to convert %s" % self.name
+            except Exception as e:
+                print "Failed to convert %s: %s" % (self.name, e)
 
-        return "//NO CONVERSION FROM NATIVE FOR " + self.name
+        return "// NO CONVERSION FROM NATIVE FOR %s" % self.name
 
     def to_native(self, convert_opts):
         assert('generator' in convert_opts)
@@ -1568,7 +1637,7 @@ def main():
                 'clang_args': clangArgs,
                 'target': os.path.join(workingdir, "targets", t),
                 'outdir': outdir,
-                'search_path': os.path.join(workingdir),
+                'search_path': os.path.join(workingdir, "..", "..", "cocos"),
                 'remove_prefix': config.get(s, 'remove_prefix'),
                 'target_ns': config.get(s, 'target_namespace'),
                 'cpp_ns': config.get(s, 'cpp_namespace').split(' ') if config.has_option(s, 'cpp_namespace') else None,
