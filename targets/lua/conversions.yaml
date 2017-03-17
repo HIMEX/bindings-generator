@@ -152,6 +152,7 @@ conversions:
     "DataBuffer": "lua_pushlstring(L, ${in_value}.value.data(), ${in_value}.value.size())"
     "DatabaseQueryResponse": "himex_database_query_response_to_luaval(L, ${in_value})"
     "DeviceInfo": "himex_device_info_to_luaval(L, ${in_value})"
+    "GPSData": "himex_gps_data_to_luaval(L, ${in_value})"
     "LinearAccelerationData": "himex_linear_acceleration_data_to_luaval(L, ${in_value})"
     "WebRequestParams": "himex_web_request_params_to_luaval(L, ${in_value})"
 
